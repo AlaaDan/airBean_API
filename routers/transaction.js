@@ -1,20 +1,21 @@
 const express = require('express');
-
+const { v4: uuidv4 } = require('uuid')
+const menu = require('../menu.json');
 const Datastore = require('nedb');
 const orderHistory_database = new Datastore({
-    filename: './../database/orderHistory.db',
+    filename: './database/orderHistory.db',
     timestampData: true,
     autoload: true
   })
 orderHistory_database.loadDatabase();
 
-const checkBody = require('./../middleware/cart.middleware');
+const {checkBody} = require('./../middleware/cart.middleware');
 
 const orderRouter = express.Router();
 
-function productPreptime(products) {
+function productPreptime(product) {
     let productionTime = 0;
-    for(product of products) {
+    for(product of menu.menu) {
         switch(product.id) {
             case 1:
                 productionTime < 3 ? productionTime = 3 : "";
@@ -42,52 +43,50 @@ function productPreptime(products) {
 }
 
 function deliveryDistance(distance) {
-    const randomDistance = Math.ceil(Math.Random()) * 20;
+    const randomDistance = Math.floor(Math.random() * distance) ;
     return randomDistance;
 }
 
-function randomOrdernumber() {
-    let orderNumber;
-    for (i = 0; i >= 12; i++) {
-        let number = Math.floor(Math.random() * 10);
-        orderNumber += number.toString();
-    }
-    return orderNumber;
-}
 
 orderRouter.post("/", checkBody, (request, response) => { //Skicka in en array med cart innehållet och en giltig login token
 
-    const orderNumber = randomOrdernumber();
-    const cartContent = request.body.cart;
+    const orderNumber = uuidv4();
+    const cartContent = request.body;
 
-    orderHistory_database.insert({ user:request.body.token, cart:cartContent, orderNumber:orderNumber })
 
     const productionTime = productPreptime(cartContent);
-    const deliveryTime = deliveryDistance(); 
-    const totalTime = productionTime + deliveryTime;
+    const deliveryTime = deliveryDistance(10); 
+    const shippingTime = productionTime + deliveryTime;
+    const createdAt = new Date().getTime()
+    let finishedAt = createdAt + ( shippingTime * 60000 )
+    orderHistory_database.insert({ user:request.body.token, cart:cartContent, orderNumber:orderNumber , 
+        createdAt, finishedAt})
 
-    response.json(
+    response.status(200).json(
         {
             success: true,
             message: "Order received",
             orderNumber: orderNumber,
-            deliveryTime: totalTime
+            deliveryTime: shippingTime
         }
     )
 })
 
-orderRouter.get("/:ordernumber", (request, response) => { //TODO: Lägg till checkBody, ta emot en array med ID från varje produkt
 
-    const loginToken = request.body.loginToken;
-    const orderNumber = request.body.orderNumber;
-
-    if(orderHistory_database.findOne({ user:loginToken, orderNumber:orderNumber })) {
-
-    } else {
-        response.status(400).json('No matching order could be found');
-    }
-
-    response.json(totalTime);
-})
+function findOrderOnDatabase(orderNumber) {
+    return new Promise((resolve, reject) => {
+        orderHistory_database.findOne(
+        {
+            orderNumber,
+        },
+        (err, order) => {
+          if (err) {
+            reject(err)
+          }
+          resolve(order)
+        }
+      )
+    })
+  }
 
 module.exports = orderRouter
