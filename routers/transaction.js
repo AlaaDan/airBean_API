@@ -1,7 +1,4 @@
 const express = require('express');
-const app = express();
-
-const users = require('./../database/users.db');
 
 const Datastore = require('nedb');
 const orderHistory_database = new Datastore({
@@ -11,14 +8,9 @@ const orderHistory_database = new Datastore({
   })
 orderHistory_database.loadDatabase();
 
-const checkBody = require('./middleware/cart.middleware.js');
+const checkBody = require('./../middleware/cart.middleware');
 
-/*
-Ta emot en array med produkt ID:n
-Räkna ut hur lång tid det tar att förbereda alla produkter
-Räkna ut leveranstiden baserat på avstånd + förberedelse
-Skicka tillbaka Leveranstiden
-*/
+const orderRouter = express.Router();
 
 function productPreptime(products) {
     let productionTime = 0;
@@ -57,13 +49,13 @@ function deliveryDistance(distance) {
 function randomOrdernumber() {
     let orderNumber;
     for (i = 0; i >= 12; i++) {
-        let number = Math.floor(Math.random()) * 10;
+        let number = Math.floor(Math.random() * 10);
         orderNumber += number.toString();
     }
     return orderNumber;
 }
 
-app.post("/orderstatus", checkBody, (request, response) => { //Skicka in en array med cart innehållet och en giltig login token
+orderRouter.post("/", checkBody, (request, response) => { //Skicka in en array med cart innehållet och en giltig login token
 
     const orderNumber = randomOrdernumber();
     const cartContent = request.body.cart;
@@ -84,7 +76,7 @@ app.post("/orderstatus", checkBody, (request, response) => { //Skicka in en arra
     )
 })
 
-app.get("/orderstatus/:ordernumber", (request, response) => { //TODO: Lägg till checkBody, ta emot en array med ID från varje produkt
+orderRouter.get("/:ordernumber", (request, response) => { //TODO: Lägg till checkBody, ta emot en array med ID från varje produkt
 
     const loginToken = request.body.loginToken;
     const orderNumber = request.body.orderNumber;
@@ -92,8 +84,10 @@ app.get("/orderstatus/:ordernumber", (request, response) => { //TODO: Lägg till
     if(orderHistory_database.findOne({ user:loginToken, orderNumber:orderNumber })) {
 
     } else {
-        response.status(400).json('Ingen matchande order kunde hittas');
+        response.status(400).json('No matching order could be found');
     }
 
     response.json(totalTime);
 })
+
+module.exports = orderRouter
