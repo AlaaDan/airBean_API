@@ -5,4 +5,4 @@ function getMenu(req,res){
     res.json({success: true, menu:menu})
 }
 
-module.exports = getMenu
+module.exports = getMenu    
