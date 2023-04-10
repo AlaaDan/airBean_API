@@ -5,6 +5,7 @@ function checkBodyOnOrder(request, response, next) {
   if (
     !request.body.hasOwnProperty('user_id') ||
     !request.body.hasOwnProperty('products') ||
+    !request.body.hasOwnProperty('total') ||
     !request.body.products.length != 0
   )
     return response.status(400).json({ message: 'Missing cart data in body' })
@@ -15,7 +16,9 @@ function checkBodyOnOrder(request, response, next) {
     // validate product on product list
     const { error } = itemCheck(product)
     if (error)
-      return response.status(400).json({ message: 'Incorrect product data' })
+      return response
+        .status(400)
+        .json({ message: 'Incorrect product data type' })
 
     // check price on product if it is the same as in menu.jso
     menuFile.menu.forEach((item) => {
