@@ -31,12 +31,14 @@ orderHistory_database.loadDatabase()
         "quanlity": 2
 
       },
-    ]
+    ],
+    total: 137
+    
 
     
   */
 async function addNewOrder(request, response) {
-  const { user_id, products } = request.body
+  const { user_id, products, total } = request.body
   try {
     if (user_id !== '') {
       const user = await findUserOnDatabase(user_id)
@@ -56,6 +58,7 @@ async function addNewOrder(request, response) {
     orderHistory_database.insert({
       user_id,
       products,
+      total,
       orderNumber,
       createdAt,
       finishedAt,
@@ -78,21 +81,26 @@ async function getOrderStatus(request, response) {
   //TODO: Lägg till checkBody, ta emot en array med ID från varje produkt
   try {
     const order = await findOrderOnDatabase(request.params.ordernumber)
-    console.log(order)
     if (order) {
       const currentTime = new Date().getTime()
       const finishedAt = order.finishedAt
       const shippingTime = Math.round((finishedAt - currentTime) / 60000)
+      const detail = {
+        orderNumber: order.orderNumber,
+        createdAt: formatDateYYMMDD(order.createdAt),
+        total: order.total,
+        products: order.products,
+      }
       if (shippingTime < 1) {
         response.status(200).json({
           success: true,
-          orderNumber: order.ordernumber,
+          detail,
           message: 'Your order is delivered',
         })
       } else {
         response.status(200).json({
           success: true,
-          orderNumber: order.ordernumber,
+          detail,
           deliveryTime: shippingTime,
         })
       }
@@ -105,6 +113,16 @@ async function getOrderStatus(request, response) {
       .status(500)
       .json({ success: false, message: 'Something wrong on server' })
   }
+}
+
+function formatDateYYMMDD(time) {
+  const date = new Date(time)
+  const year = date.getFullYear()
+  let month = date.getMonth() + 1
+  if (month < 10) month = '0' + month.toString()
+  let day = date.getDate()
+  if (day < 10) day = '0' + day.toString()
+  return `${year}-${month}-${day}`
 }
 
 function productPreptime(product) {
