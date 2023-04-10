@@ -1,7 +1,8 @@
 const { v4: uuidv4 } = require('uuid')
-const menu = require('../menu.json')
+const menuItems = require('../model/menu.model')
 const Datastore = require('nedb')
-const { findUserOnDatabase } = require('./auth.controller')
+const {productPreptime,deliveryDistance,formatDateYYMMDD} = require('../util/helper')
+const { findUserOnDatabaseByUserId } = require('./auth.controller')
 
 const orderHistory_database = new Datastore({
   filename: './database/orderHistory.db',
@@ -10,38 +11,11 @@ const orderHistory_database = new Datastore({
 
 orderHistory_database.loadDatabase()
 
-//Skicka in en array med cart innehållet och en giltig login token
-
-/**  body ska ser ut såhär:
- * 
-    user_id:'' eller 'user id',
-    products:[
-        {
-        "id":1,
-        "title":"Bryggkaffe",
-        "desc":"Bryggd på månadens bönor.",
-        "price":39
-        "quanlity": 1
-      },
-      {
-        "id":2,
-        "title":"Caffè Doppio",
-        "desc":"Bryggd på månadens bönor.",
-        "price":49,
-        "quanlity": 2
-
-      },
-    ],
-    total: 137
-    
-
-    
-  */
 async function addNewOrder(request, response) {
   const { user_id, products, total } = request.body
   try {
     if (user_id !== '') {
-      const user = await findUserOnDatabase(user_id)
+      const user = await findUserOnDatabaseByUserId(user_id)
       if (!user)
         return response
           .status(404)
@@ -80,17 +54,19 @@ async function addNewOrder(request, response) {
 async function getOrderStatus(request, response) {
   //TODO: Lägg till checkBody, ta emot en array med ID från varje produkt
   try {
-    const order = await findOrderOnDatabase(request.params.ordernumber)
+    const order = await findOneOrderOnDatabase(request.params.ordernumber)
     if (order) {
       const currentTime = new Date().getTime()
       const finishedAt = order.finishedAt
       const shippingTime = Math.round((finishedAt - currentTime) / 60000)
+
       const detail = {
         orderNumber: order.orderNumber,
         createdAt: formatDateYYMMDD(order.createdAt),
         total: order.total,
         products: order.products,
       }
+      let formatedFinishedAt = formatDateYYMMDD(finishedAt)
       if (shippingTime < 1) {
         response.status(200).json({
           success: true,
@@ -101,7 +77,7 @@ async function getOrderStatus(request, response) {
         response.status(200).json({
           success: true,
           detail,
-          deliveryTime: shippingTime,
+          deliveryTime: `${shippingTime} minutes - ${formatedFinishedAt}`,
         })
       }
     } else {
@@ -115,51 +91,36 @@ async function getOrderStatus(request, response) {
   }
 }
 
-function formatDateYYMMDD(time) {
-  const date = new Date(time)
-  const year = date.getFullYear()
-  let month = date.getMonth() + 1
-  if (month < 10) month = '0' + month.toString()
-  let day = date.getDate()
-  if (day < 10) day = '0' + day.toString()
-  return `${year}-${month}-${day}`
-}
+async function getOrderHistoryByUserId(request, response) {
+  try {
 
-function productPreptime(product) {
-  let productionTime = 0
-  for (product of menu.menu) {
-    switch (product.id) {
-      case 1:
-        productionTime < 3 ? (productionTime = 3) : ''
-        break
-      case 2:
-        productionTime < 4 ? (productionTime = 4) : ''
-        break
-      case 3:
-        productionTime < 5 ? (productionTime = 5) : ''
-        break
-      case 4:
-        productionTime < 2 ? (productionTime = 2) : ''
-        break
-      case 5:
-        productionTime < 2 ? (productionTime = 2) : ''
-        break
-      case 6:
-        productionTime < 4 ? (productionTime = 4) : ''
-        break
-      default:
-        return 'Product not on menu'
+    const orderHistory = await findAllOrderOnDatabase(request.params.user_id)
+    let history =[]
+    if(orderHistory){
+      history= orderHistory.map((order) => {
+        return {
+          orderNumber: order.orderNumber,
+          createdAt: formatDateYYMMDD(order.createdAt),
+          total: order.total,
+          products: order.products,
+  
+        }
+      })
     }
+     return response.status(200).json({
+      success:true,
+      history
+     })
+
+  } catch (error) {
+    console.log(error);
+    return response
+    .status(500)
+    .json({ success: false, message: 'Something wrong on server'})
   }
-  return productionTime
 }
 
-function deliveryDistance(distance) {
-  const randomDistance = Math.floor(Math.random() * distance)
-  return randomDistance
-}
-
-function findOrderOnDatabase(orderNumber) {
+function findOneOrderOnDatabase(orderNumber) {
   return new Promise((resolve, reject) => {
     orderHistory_database.findOne(
       {
@@ -174,7 +135,23 @@ function findOrderOnDatabase(orderNumber) {
     )
   })
 }
+function findAllOrderOnDatabase(user_id) {
+  return new Promise((resolve, reject) => {
+    orderHistory_database.find(
+      {
+        user_id,
+      },
+      (err, order) => {
+        if (err) {
+          reject(err)
+        }
+        resolve(order)
+      }
+    )
+  })
+}
 module.exports = {
   addNewOrder,
   getOrderStatus,
+  getOrderHistoryByUserId
 }

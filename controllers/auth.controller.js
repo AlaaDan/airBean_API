@@ -7,11 +7,12 @@ const user_database = new Datastore({
   autoload: true,
   corruptAlertThreshold: 1,
 })
+
 user_database.loadDatabase()
 
 const signUp = async (req, res) => {
   try {
-    const user = await findUserOnDatabase(req.body.username)
+    const user = await findUserOnDatabaseByUserName(req.body.username)
     if (user) {
       return res.status(200).json({
         success: false,
@@ -39,8 +40,9 @@ const signUp = async (req, res) => {
 }
 
 const login = async (req, res) => {
+  console.log(res.body)
   try {
-    const user = await findUserOnDatabase(req.body.username)
+    const user = await findUserOnDatabaseByUserName(req.body.username)
     if (!user) {
       return res.status(404).json({
         success: false,
@@ -66,7 +68,23 @@ const login = async (req, res) => {
     console.log(error)
   }
 }
-function findUserOnDatabase(user_id) {
+function findUserOnDatabaseByUserName(username) {
+  return new Promise((resolve, reject) => {
+    user_database.findOne(
+      {
+        username,
+      },
+      (err, user) => {
+        if (err) {
+          reject(err)
+        }
+        resolve(user)
+      }
+    )
+  })
+}
+
+function findUserOnDatabaseByUserId(user_id) {
   return new Promise((resolve, reject) => {
     user_database.findOne(
       {
@@ -81,4 +99,4 @@ function findUserOnDatabase(user_id) {
     )
   })
 }
-module.exports = { signUp, login, findUserOnDatabase }
+module.exports = { signUp, login, findUserOnDatabaseByUserName,findUserOnDatabaseByUserId }

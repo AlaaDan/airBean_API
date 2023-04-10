@@ -1,6 +1,8 @@
 const Joi = require('joi')
-const menuFile = require('../menu.json')
+const menuItems = require('../model/menu.model')
+
 function checkBodyOnOrder(request, response, next) {
+  console.log(menuItems);
   // check if body has user_id, products and products is not empty
   if (
     !request.body.hasOwnProperty('user_id') ||
@@ -8,7 +10,7 @@ function checkBodyOnOrder(request, response, next) {
     !request.body.hasOwnProperty('total') ||
     !request.body.products.length != 0
   )
-    return response.status(400).json({ message: 'Missing cart data in body' })
+    return response.status(400).json({ success:false, message: 'Missing cart data in body' })
 
   // continue to the next validation
   const products = request.body.products
@@ -18,18 +20,20 @@ function checkBodyOnOrder(request, response, next) {
     if (error)
       return response
         .status(400)
-        .json({ message: 'Incorrect product data type' })
+        .json({ success:false, message: 'Incorrect product data type' })
 
     // check price on product if it is the same as in menu.jso
-    menuFile.menu.forEach((item) => {
-      if (item.id == product.id && item.title == product.title) {
-        if (item.price !== product.price) {
-          return response
-            .status(400)
-            .json({ message: 'Price on product was incorrect' })
-        }
-      }
+    const productOnMenu =  menuItems().find((item) => {
+      return item.id === product.id && item.title === product.title
     })
+    if(!productOnMenu) 
+      return response.status(400).json({success:false, message: "This product is not in the menu"})
+    
+    if(productOnMenu.price !== product.price) 
+      return response
+      .status(400)
+      .json({ success:false, message: 'Price on product was incorrect' })
+    
   }
 
   next()

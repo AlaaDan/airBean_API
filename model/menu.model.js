@@ -1,7 +1,7 @@
 const menuDB = require('../menu.json')
 
 function menuItems(){
-    return menuDB
+    return menuDB.menu
 }
 
 
